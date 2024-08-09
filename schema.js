@@ -14,6 +14,7 @@ exports.typeDefs = gql`
     addNewProduct(input: AddProductInput!): Product!
     addNewProducts(input: [AddProductInput!]!): [Product!]!
     addNewReview(input: AddReviewInput!): Review!
+    addNewUser(input: AddUserInput!): User!
     deleteCategory(id: ID!): Boolean!
     deleteProduct(id: ID!): Boolean!
     deleteReview(id: ID!): Boolean!
@@ -46,6 +47,13 @@ exports.typeDefs = gql`
     productID: ID!
   }
 
+  type User {
+    id: ID!
+    username: String!
+    password: String!
+    role: String!
+  }
+
   input ProductFilterInput {
     onSale: Boolean
   }
@@ -74,5 +82,11 @@ exports.typeDefs = gql`
     comment: String!
     rating: Int!
     productID: String!
+  }
+
+  input AddUserInput {
+    username: String!
+    password: String!
+    role: String!
   }
 `;

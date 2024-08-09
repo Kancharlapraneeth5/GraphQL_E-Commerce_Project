@@ -1,10 +1,6 @@
-// MODIFIED....
-
-const product = require("../models/productsModel");
-
 exports.Category = {
   // Modify the below method with MongoDB collections
-  products: async ({ id }, { filter }) => {
+  products: async ({ id }, { filter }, context) => {
     let query = { categoryId: id };
 
     if (filter) {
@@ -13,7 +9,17 @@ exports.Category = {
       }
     }
 
-    const filterCategoryProducts = await product.find(query);
-    return filterCategoryProducts;
+    try {
+      const filterCategoryProducts = await context.ProductModel.find(query);
+      return filterCategoryProducts;
+    } catch (err) {
+      throw new ApolloError(
+        "An error occurred while fetching the products",
+        "Internal Server Error",
+        {
+          statusCode: 500,
+        }
+      );
+    }
   },
 };

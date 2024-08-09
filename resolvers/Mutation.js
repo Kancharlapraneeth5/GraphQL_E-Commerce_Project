@@ -1,43 +1,37 @@
-// MODIFIED....
-
-const category = require("../models/categoriesModel");
-const product = require("../models/productsModel");
-const review = require("../models/reviewsModel");
-
+const bcrypt = require("bcryptjs");
+const { ApolloError } = require("apollo-server-errors");
 const { v4: uuid } = require("uuid");
 
 exports.Mutation = {
-  addNewCategory: (parent, { input }) => {
-    const { name } = input;
-    const newCategory = {
-      id: uuid(),
-      name,
-    };
-    category.create(newCategory);
-    return newCategory;
-  },
-  addNewProduct: (parent, { input }) => {
-    const { name, image, price, onSale, quantity, categoryId, description } =
-      input;
-    const newProduct = {
-      id: uuid(),
-      name,
-      image,
-      price,
-      onSale,
-      quantity,
-      categoryId,
-      description,
-    };
+  addNewCategory: async (parent, { input }, context) => {
+    if (context.user.role === "admin") {
+      const { name } = input;
+      const newCategory = {
+        id: uuid(),
+        name,
+      };
 
-    product.create(newProduct);
-    return newProduct;
+      try {
+        await context.CategoryModel.create(newCategory);
+        return newCategory;
+      } catch (err) {
+        if (err.errmsg.includes("duplicate key error") && err.code === 11000) {
+          throw new ApolloError("Category name must be unique", "Conflict", {
+            statusCode: 409,
+          });
+        }
+        throw err;
+      }
+    } else {
+      throw new ApolloError("Permission Denied!", "Forbidden", {
+        statusCode: 403,
+      });
+    }
   },
-
-  addNewProducts: (parent, { input }) => {
-    const newProducts = input.map((productInput) => {
+  addNewProduct: async (parent, { input }, context) => {
+    if (context.user.role === "admin") {
       const { name, image, price, onSale, quantity, categoryId, description } =
-        productInput;
+        input;
       const newProduct = {
         id: uuid(),
         name,
@@ -49,52 +43,212 @@ exports.Mutation = {
         description,
       };
 
-      return newProduct;
-    });
-
-    product.create(newProducts);
-    return newProducts;
+      try {
+        await context.ProductModel.create(newProduct);
+        return newProduct;
+      } catch (err) {
+        if (err.errmsg.includes("duplicate key error") && err.code === 11000) {
+          throw new ApolloError("Product name must be unique", "Conflict", {
+            statusCode: 409,
+          });
+        }
+        throw err;
+      }
+    } else {
+      throw new ApolloError("Permission Denied!", "Forbidden", {
+        statusCode: 403,
+      });
+    }
   },
 
-  addNewReview: (parent, { input }) => {
-    const { date, title, comment, rating, productID } = input;
-    const newReview = {
-      id: uuid(),
-      date,
-      title,
-      comment,
-      rating,
-      productID,
-    };
+  addNewProducts: (parent, { input }, context) => {
+    if (context.user.role === "admin") {
+      const newProducts = input.map((productInput) => {
+        const {
+          name,
+          image,
+          price,
+          onSale,
+          quantity,
+          categoryId,
+          description,
+        } = productInput;
+        const newProduct = {
+          id: uuid(),
+          name,
+          image,
+          price,
+          onSale,
+          quantity,
+          categoryId,
+          description,
+        };
 
-    review.create(newReview);
-    return newReview;
+        return newProduct;
+      });
+
+      context.ProductModel.create(newProducts);
+      return newProducts;
+    } else {
+      throw new ApolloError("Permission Denied!", "Forbidden", {
+        statusCode: 403,
+      });
+    }
   },
 
-  deleteCategory: async (parent, { id }) => {
-    await category.findByIdAndDelete(id);
-    await product.updateMany(
-      { categoryId: id },
-      { $set: { categoryId: null } }
-    );
-    return true;
+  addNewReview: async (parent, { input }, context) => {
+    if (context.user.role === "admin") {
+      const { date, title, comment, rating, productID } = input;
+      const newReview = {
+        id: uuid(),
+        date,
+        title,
+        comment,
+        rating,
+        productID,
+      };
+
+      try {
+        await context.ReviewModel.create(newReview);
+        return newReview;
+      } catch (err) {
+        if (err.errmsg.includes("duplicate key error") && err.code === 11000) {
+          throw new ApolloError("Review must be unique", "Conflict", {
+            statusCode: 409,
+          });
+        }
+        throw err;
+      }
+    } else {
+      throw new ApolloError("Permission Denied!", "Forbidden", {
+        statusCode: 403,
+      });
+    }
   },
-  deleteProduct: async (parent, { id }) => {
-    await product.findByIdAndDelete(id);
-    await review.deleteMany({ productId: id });
-    return true;
+
+  addNewUser: async (parent, { input }, context) => {
+    console.log("the context is..." + context.user);
+    console.log("the context is..." + context.user.role);
+
+    if (context.user.role === "admin") {
+      const { username, password, role } = input;
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      const newUser = {
+        id: uuid(),
+        username,
+        password: hashedPassword,
+        role,
+      };
+
+      try {
+        await context.PeopleModel.create(newUser);
+        return newUser;
+      } catch (err) {
+        if (err.errmsg.includes("duplicate key error") && err.code === 11000) {
+          throw new ApolloError("Username must be unique", "Conflict", {
+            statusCode: 409,
+          });
+        }
+        throw err;
+      }
+    } else {
+      throw new ApolloError("Permission Denied!", "Forbidden", {
+        statusCode: 403,
+      });
+    }
   },
-  deleteReview: async (parent, { id }) => {
-    await review.findByIdAndDelete(id);
-    return true;
+
+  deleteCategory: async (parent, { id }, context) => {
+    if (context.user.role === "admin") {
+      try {
+        await context.CategoryModel.findByIdAndDelete(id);
+        await context.ProductModel.updateMany(
+          { categoryId: id },
+          { $set: { categoryId: null } }
+        );
+        return true;
+      } catch (err) {
+        throw new ApolloError(
+          "An error occurred while deleting the category",
+          "Internal Server Error",
+          {
+            statusCode: 500,
+          }
+        );
+      }
+    } else {
+      throw new ApolloError("Permission Denied!", "Forbidden", {
+        statusCode: 403,
+      });
+    }
   },
-  updateCategory: async (parent, { id, input }) => {
-    // { new: true }: This is an options object. The new option, when set to true, means that the method
-    // should return the updated document. If new is false or not provided, the method would return the original
-    // document before it was updated.
-    const updatedCategory = await category.findByIdAndUpdate(id, input, {
-      new: true,
-    });
-    return updatedCategory;
+  deleteProduct: async (parent, { id }, context) => {
+    if (context.user.role === "admin") {
+      try {
+        await context.ProductModel.findByIdAndDelete(id);
+        await context.ReviewModel.deleteMany({ productId: id });
+        return true;
+      } catch (err) {
+        throw new ApolloError(
+          "An error occurred while deleting the product",
+          "Internal Server Error",
+          {
+            statusCode: 500,
+          }
+        );
+      }
+    } else {
+      throw new ApolloError("Permission Denied!", "Forbidden", {
+        statusCode: 403,
+      });
+    }
+  },
+  deleteReview: async (parent, { id }, context) => {
+    if (context.user.role === "admin") {
+      try {
+        await context.ReviewModel.findByIdAndDelete(id);
+        return true;
+      } catch (err) {
+        throw new ApolloError(
+          "An error occurred while deleting the review",
+          "Internal Server Error",
+          {
+            statusCode: 500,
+          }
+        );
+      }
+    } else {
+      throw new ApolloError("Permission Denied!", "Forbidden", {
+        statusCode: 403,
+      });
+    }
+  },
+  updateCategory: async (parent, { id, input }, context) => {
+    if (context.user.role === "admin") {
+      try {
+        const updatedCategory = await context.CategoryModel.findByIdAndUpdate(
+          id,
+          input,
+          {
+            new: true,
+          }
+        );
+        return updatedCategory;
+      } catch (err) {
+        throw new ApolloError(
+          "An error occurred while updating the category",
+          "Internal Server Error",
+          {
+            statusCode: 500,
+          }
+        );
+      }
+    } else {
+      throw new ApolloError("Permission Denied!", "Forbidden", {
+        statusCode: 403,
+      });
+    }
   },
 };

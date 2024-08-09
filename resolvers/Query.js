@@ -1,53 +1,125 @@
-// MODIFIED....
-
-const category = require("../models/categoriesModel");
-const product = require("../models/productsModel");
-
 exports.Query = {
-  // Actual resolver syntax is "fieldName: (parent, args, context, info) => data;"
-  // parent-> This is the return value of the resolver for this field's parent (the resolver for a parent field always executes before the resolvers for that field's children)
-  // args-> This object contains all GraphQl arguments provided for this field
-  // context-> Authentication information and access to data source
-  // info-> This contains information about the execution state of the operation (used only in advanced cases).
-  products: async (parent, { filter }) => {
+  // In Apollo Server, each field in your schema has a corresponding resolver function.
+  // A resolver function is responsible for fetching the data for its field. The resolver function takes
+  // four positional arguments:
+
+  // parent-> This is the result returned from the resolver for the parent field.
+  // For a root field (a field on the Query, Mutation, or Subscription type), parent is undefined.
+
+  // args-> This is an object that contains all GraphQL arguments provided for the field. For example,
+  // if the field was called with myField(arg1: "value"), the args object is { arg1: "value" }.
+
+  // context-> This is an object shared by all resolvers in a particular query.
+  // It's used to store per-request state, including authentication information, dataloader instances,
+  // and anything else that should be taken into account when resolving the query
+
+  // info-> his argument contains information about the execution state of the query.
+  // It includes the field name, path to the field from the root, and more. It's mostly used in advanced cases,
+  // like schema stitching
+
+  // THE ORDER OF THE PARAMETERS IN THE RESOLVER FUNCTION IS VERY IMPORTANT!!!!!!
+
+  products: async (parent, { filter }, context) => {
     let filterProducts;
 
-    if (filter) {
-      if (filter.onSale === true) {
-        filterProducts = await product.find({ onSale: true });
-      } else if (filter.onSale === false) {
-        filterProducts = await product.find({ onSale: false });
-      } else {
-        filterProducts = await product.find();
+    try {
+      if (filter) {
+        if (filter.onSale === true) {
+          filterProducts = await context.ProductModel.find({ onSale: true });
+        } else if (filter.onSale === false) {
+          filterProducts = await context.ProductModel.find({ onSale: false });
+        } else {
+          filterProducts = await context.ProductModel.find();
+        }
       }
+      return filterProducts;
+    } catch (err) {
+      throw new ApolloError(
+        "An error occurred while fetching the products",
+        "Internal Server Error",
+        {
+          statusCode: 500,
+        }
+      );
     }
-    return filterProducts;
   },
-  product: async (parent, args) => {
+
+  product: async (parent, args, context) => {
     const productID = args.id;
-    const result = await product.findById(productID);
-    return result;
+    try {
+      const result = await context.ProductModel.findById(productID);
+      return result;
+    } catch (err) {
+      throw new ApolloError(
+        "An error occurred while fetching the product",
+        "Internal Server Error",
+        {
+          statusCode: 500,
+        }
+      );
+    }
   },
-  productByName: async (parent, args, { db }) => {
+
+  productByName: async (parent, args, context) => {
     const productName = args.name;
-    const result = await product.findOne({ name: productName });
-    return result;
+    try {
+      const result = await context.ProductModel.findOne({ name: productName });
+      return result;
+    } catch (err) {
+      throw new ApolloError(
+        "An error occurred while fetching the product by name",
+        "Internal Server Error",
+        {
+          statusCode: 500,
+        }
+      );
+    }
   },
-  // for the below need MongoDB to be implemented
-  categories: async () => {
-    const result = await category.find();
-    return result;
+
+  categories: async (parent, args, context) => {
+    try {
+      const result = await context.CategoryModel.find();
+      return result;
+    } catch (err) {
+      throw new ApolloError(
+        "An error occurred while fetching the categories",
+        "Internal Server Error",
+        {
+          statusCode: 500,
+        }
+      );
+    }
   },
-  // for the below need MongoDB to be implemented
-  category: async (parent, args) => {
+
+  category: async (parent, args, context) => {
     const { id } = args;
-    const result = await category.findById(id);
-    return result;
+    try {
+      const result = await context.CategoryModel.findById(id);
+      return result;
+    } catch (err) {
+      throw new ApolloError(
+        "An error occurred while fetching the category",
+        "Internal Server Error",
+        {
+          statusCode: 500,
+        }
+      );
+    }
   },
-  // for the below need MongoDB to be implemented
-  categoryByName: async (parent, args, { db }) => {
+
+  categoryByName: async (parent, args, context) => {
     const { name } = args;
-    const result = await category.findOne({ name });
-    return result;
+    try {
+      const result = await context.CategoryModel.findOne({ name });
+      return result;
+    } catch (err) {
+      throw new ApolloError(
+        "An error occurred while fetching the category by name",
+        "Internal Server Error",
+        {
+          statusCode: 500,
+        }
+      );
+    }
   },
 };

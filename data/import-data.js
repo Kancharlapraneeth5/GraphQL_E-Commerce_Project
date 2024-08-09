@@ -5,6 +5,7 @@ dotenv.config({ path: "./../config.env" });
 const Category = require("./../models/categoriesModel");
 const Product = require("./../models/productsModel");
 const Review = require("./../models/reviewsModel");
+const People = require("../models/peopleModel");
 
 const DB = process.env.DATABASE.replace(
   "<PASSWORD>",
@@ -25,6 +26,10 @@ const dataMap = {
   "Reviews.json": {
     data: JSON.parse(fs.readFileSync(`${__dirname}/Reviews.json`, "utf-8")),
     model: Review,
+  },
+  "People.json": {
+    data: JSON.parse(fs.readFileSync(`${__dirname}/People.json`, "utf-8")),
+    model: People,
   },
 };
 
